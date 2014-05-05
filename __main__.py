@@ -1,7 +1,8 @@
 import sys
 
 from gcdev import get_parser
-
+from gcdev import init
+from gcdev import edit
 
 def main(argv):
     """Runs main program.
@@ -17,7 +18,13 @@ def main(argv):
 
     parser = get_parser()
     args = parser.parse_args(remaining)
-    print args
+
+    if args.cmd == 'edit':
+        edit(args)
+    elif args.cmd == 'init':
+        init(args)
+    else:
+        fatal("Unexpected command: "+args.cmd)
     
     return 0
 

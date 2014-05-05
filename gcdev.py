@@ -16,6 +16,11 @@
 """
 
 import argparse
+import gcd_errors
+
+import docker
+from gitcmd import git_init_repo
+from metadatadatastore import MetadataDataStore
 
 
 def get_parser():
@@ -42,15 +47,139 @@ def get_parser():
     parser_init.add_argument('--scopes', dest='project_scopes',
                               nargs='*', action='append',
                              help='Set authorization scopes')
+    parser_init.add_argument('--repo', dest='git_repo',
+                             default=None)
+                             help='Set authorization scopes')
     parser_init.add_argument('--lang', dest='project_lang',
-                             default='python:flask',
-                             help='Set language:framework')
+                             default=None,
+                             help='Set language:framework for default template')
 
     # Edit
     parser_edit = subparsers.add_parser('edit', help='Create editor.')
     parser_edit.set_defaults(cmd='edit')
-    parser_edit.add_argument('--projectl', dest='project_name',
+    parser_edit.add_argument('--project', dest='project_name',
                              help="Project to edit")
+    parser_edit.add_argument('--desktop_name', dest='crd_name',
+                             help="Name of the Chrome Remote Desktop sessoinn")
+
+    # Publish
+    parser_publish = subparsers.add_parser('publish', help='Publish current project in Apps Marketplace')
+    parser_publish.set_defaults(cmd='publish')
+    parser_publish.add_argument('--project', dest='project_name',
+                                help='Project to publish')
+
 
 
     return parser
+
+
+
+_GOOGLE_DEV_IMAGE="google/dev-env" # our docker image name
+
+
+def edit(args):
+    """
+    Use the parameters stored in the metadata store to guide creation of a
+    cloud-based edit session that we tie in with, via GVC.
+    """
+    mdds = MetadataDataStore()
+
+    if mdds.get('project_name') == None:
+        raise gcd_errors.InvalidCondition("Uninitialized project")
+
+    
+    # see if we have a running docker environment (has the machine been
+    # rebooted since our last 'init'?)
+    ssh = docker.get_ssh(image=_GOOGLE_DEV_IMAGE)
+    if not ssh:
+        container = docker.start(image=_GOOGLE_DEV_IMAGE):
+        docker.get_ssh()
+        if not ssh:
+            raise gcd_errors.Fail("Can't start project container")
+
+        # fetch the latest of the user's work into the template
+        if mds.get('active_template'):
+            user_template = mdds.get('user_template')
+            git_repo = mdds.get('git_repo')
+            ssh("git --repo %s pull %s" (git_repo, user_template))
+        
+    
+    # otherwise, layer on top of it Chrome Remote Desktop,
+    # specialized to bring up the
+    # editor of their choice which is specialized to their GIT repository
+    crd_name = mds.get('crd_name')
+    _CRD_CMD = "/opt/google/chrome_remote_desktop --name=%s"
+    
+    ssh(_CRD_CMD % crd_name)
+
+
+def init(args):
+    """
+    Save parameters in the metadata store that we will use to guide
+    creation of cloud-based edit sessions
+
+    Create a docker container specialized to the language/sdk environment
+
+    parameters:
+      project*
+      git repository (may be project-derived)*
+      editor*
+      language[:framework]
+    """
+
+    _NON_PERSISTENT_ARGS=['cmd'] # arguments not intended to persist
+
+
+    # check the parameters for semantic issues
+    argdict = vars(args)
+    if 'project_name' not in argdict or argdict['project_name'] == None:
+        raise gcd_errors.Fail("Project name must be specified")
+
+    # store the current project state in the metadata store for this user
+    mdds = MetadataDataStore()
+
+    for arg in argdict:
+        if arg in _NON_PERSISTENT_ARGS:
+            pass
+        
+        mdds.store(arg, argdict[arg])
+
+    # create a docker environment using an underlying base of the Google Cloud
+    # SDK, plus popular API client libraries.
+
+    # xxx(orr): probably consolidate this into one well-known Dockerfile?
+    _docker("build -t %s" % _GOOGLE_DEV_IMAGE)
+
+    # xxx(orr)
+    #_docker("run -t google-dev pull google/sdk")
+    #_docker("run -t google-dev pull google/apps-apis")
+    #_docker("run -t google-dev pull google/geo-apis")
+    #_docker("run -t google-dev pull google/yt-apis")
+
+    # add in a specialized version of whatever framework the user is intending
+    # to use in their language of choice
+    template = gen_template(args.project_lang)
+    if template:
+        # add to the repository; it will be pulled into the user's home dir
+        # in the edit phase
+        git_repo = mds.get('git_repo')
+        git = git_init_repo(git_repo)
+        git("push %s" % template)
+        
+        mds.store('active_template', 'true')
+
+
+def gen_template(lang):
+    """
+    Create the base file that will be used as the starting basis for the
+    program
+    """
+    
+    return None
+
+
+def publish(args):
+    """
+    Publish the current project in the Apps marketplace
+    """
+    raise gcd_errors.Fail("Not yet implemented")

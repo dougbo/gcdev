@@ -1,0 +1,13 @@
+q: could run this script either in cloud or from some remote device
+-- make it so that it runs in the cloud; we're all-in, plus that way 
+it works on chromebooks
+-- that suggests that you want ssh capability fairly early on, and that there will be a second phase of init that happens over ssh
+
+template can be ADD'ed from dockerfile or via docker cmd
+
+todo:
+. basic build of dev environment
+. add ssh; run
+. run crd
+. add template
+
