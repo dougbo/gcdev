@@ -6,8 +6,30 @@ it works on chromebooks
 template can be ADD'ed from dockerfile or via docker cmd
 
 todo:
-. basic build of dev environment
-. add ssh; run
-. run crd
 . add template
+. split google dev env
+. split android studio; cloud work
 
+issues:
+. make local store per-user per-project
+. take container as parameter for edit
+. resume existing ssh session
+.. maybe refuse if there's more than one?
+
+
+gcdev init --project dougbo  
+<- sets default project. need to gcdev set [project] or gcedit --project <x> to change
+<- also sets initial parameters, some of which can't be reset: e.g., editor/template/lang
+
+gcdev list [--project x]
+
+gcdev edit [--project x] [--container x] [--restart] 
+<- starts or restarts per-user editing environment for given project
+. standard usage: no running containers -- creates per-user container and runs crd
+. reports container ID
+
+. if one container exists and is running, or if container specified and is running
+restarts crd if --restart
+.. else 
+.. verifies project is the same as current and reports container ID; else restarts crd
+. reports container ID
