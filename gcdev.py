@@ -16,11 +16,14 @@
 """
 
 import argparse
-import gcd_errors
+import subprocess
+import os
+import time
 
 import docker
 from gitcmd import git_init_repo
 from metadatadatastore import MetadataDataStore
+import gcd_errors
 
 
 def get_parser():
@@ -45,11 +48,11 @@ def get_parser():
     parser_init.add_argument('--appengine', action='store_true', dest='is_gae',
                              help='Initialize App Engine configuration')
     parser_init.add_argument('--scopes', dest='project_scopes',
-                              nargs='*', action='append',
+                             nargs='*', action='append',
                              help='Set authorization scopes')
     parser_init.add_argument('--repo', dest='git_repo',
-                             default=None)
-                             help='Set authorization scopes')
+                             default=None,
+                             help='Set git repository')
     parser_init.add_argument('--lang', dest='project_lang',
                              default=None,
                              help='Set language:framework for default template')
@@ -60,6 +63,7 @@ def get_parser():
     parser_edit.add_argument('--project', dest='project_name',
                              help="Project to edit")
     parser_edit.add_argument('--desktop_name', dest='crd_name',
+                             default="google-dev",
                              help="Name of the Chrome Remote Desktop sessoinn")
 
     # Publish
@@ -76,7 +80,6 @@ def get_parser():
 
 _GOOGLE_DEV_IMAGE="google/dev-env" # our docker image name
 
-
 def edit(args):
     """
     Use the parameters stored in the metadata store to guide creation of a
@@ -84,21 +87,51 @@ def edit(args):
     """
     mdds = MetadataDataStore()
 
+    def _get_env():
+        try:
+            authkeys = subprocess.check_output(["ssh-add", "-L"])
+        except subprocess.CalledProcessError:
+            raise gcd_errors.NoAuthKeys("User must have forwarded ssh auth keys.\n"
+                                        "Please use 'ssh -A' to connect to this system")
+        try:
+            hostname = subprocess.check_output("hostname")
+        except subprocess.CalledProcessError:
+            hostname = ""
+
+        env = {
+            'DOCKERENV_USER': mdds.get('user') or os.getenv('USER'),
+            'DOCKERENV_AUTHKEYS': mdds.get('ssh-keys') or authkeys,
+            'DOCKERENV_HOST': hostname,
+            }
+	print "ENV: ", env
+        return env
+
     if mdds.get('project_name') == None:
         raise gcd_errors.InvalidCondition("Uninitialized project")
 
     
     # see if we have a running docker environment (has the machine been
-    # rebooted since our last 'init'?)
-    ssh = docker.get_ssh(image=_GOOGLE_DEV_IMAGE)
+    # rebooted since our last 'edit'
+    # ssh = docker.get_ssh(image=_GOOGLE_DEV_IMAGE)
+    ssh = None
     if not ssh:
-        container = docker.start(image=_GOOGLE_DEV_IMAGE):
-        docker.get_ssh()
+        container = docker.start(_GOOGLE_DEV_IMAGE, env=_get_env())
+
+        ssh = docker.get_ssh()
         if not ssh:
-            raise gcd_errors.Fail("Can't start project container")
+            raise gcd_errors.Fail("Container failed to start")
+
+        # make sure that ssh has had enough time to start
+        for timeout in range(1,5):
+            try:
+                output = ssh("echo","hi")
+                break
+            except subprocess.CalledProcessError:
+                print "ssh: sleep ",timeout
+                time.sleep(timeout*5)
 
         # fetch the latest of the user's work into the template
-        if mds.get('active_template'):
+        if mdds.get('active_template'):
             user_template = mdds.get('user_template')
             git_repo = mdds.get('git_repo')
             ssh("git --repo %s pull %s" (git_repo, user_template))
@@ -107,10 +140,10 @@ def edit(args):
     # otherwise, layer on top of it Chrome Remote Desktop,
     # specialized to bring up the
     # editor of their choice which is specialized to their GIT repository
-    crd_name = mds.get('crd_name')
-    _CRD_CMD = "/opt/google/chrome_remote_desktop --name=%s"
+    crd_name = mdds.get('crd_name')
+    _CRD_CMD="/opt/google/chrome-remote-desktop/start-host"
     
-    ssh(_CRD_CMD % crd_name)
+    ssh(". .profile; %s %s" % (_CRD_CMD, "--name=%s" % crd_name))
 
 
 def init(args):
@@ -148,7 +181,9 @@ def init(args):
     # SDK, plus popular API client libraries.
 
     # xxx(orr): probably consolidate this into one well-known Dockerfile?
-    _docker("build -t %s" % _GOOGLE_DEV_IMAGE)
+    output = docker.do(["build", "-t", _GOOGLE_DEV_IMAGE, "."])
+    if not output:
+        raise gcd_errors.Fail("Docker build failed")
 
     # xxx(orr)
     #_docker("run -t google-dev pull google/sdk")
@@ -162,11 +197,11 @@ def init(args):
     if template:
         # add to the repository; it will be pulled into the user's home dir
         # in the edit phase
-        git_repo = mds.get('git_repo')
+        git_repo = mdds.get('git_repo')
         git = git_init_repo(git_repo)
         git("push %s" % template)
         
-        mds.store('active_template', 'true')
+        mdds.store('active_template', 'true')
 
 
 def gen_template(lang):

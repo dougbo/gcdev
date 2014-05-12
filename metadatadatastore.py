@@ -18,7 +18,8 @@ class MetadataDataStore(object):
             self._dict = json.loads(fd.read())
             fd.close()
         except IOError:
-            pass
+            self._dict = {}
+
     
     def store(self, key, value):
         print "Store %s -> %s" % (key, value)
@@ -31,5 +32,5 @@ class MetadataDataStore(object):
         
 
     def get(self, key):
-        return dict.get(key, None)
+        return self._dict.get(key, None)
         
