@@ -24,46 +24,46 @@ def ps():
     ps: return info about existing docker processes, structured as a list of dict's
     keys for the dicts are (lower case'd) column names. 
     """
-	ps_out = do(["ps"])
+    ps_out = do(["ps"])
 
-	# ps output is column-aligned. Use the column headers to pull 
-        # out the column data which we return in a list of dicts 
+    # ps output is column-aligned. Use the column headers to pull 
+    # out the column data which we return in a list of dicts 
 
-        # (it's super annoying they include a space in a col name, btw)
-        _COLS_RE = [
-            "container id +",
-            "image +",
-            "command +",
-            "created +",
-            "status +",
-            "ports +",
-            "names +"
-            ]
+    # (it's super annoying they include a space in a col name, btw)
+    _COLS_RE = [
+        "container id +",
+        "image +",
+        "command +",
+        "created +",
+        "status +",
+        "ports +",
+        "names +"
+        ]
 
-        # get the column names including the space padding from the actual ps output
-	all_cols = ps_out[0].lower()
-	cols = re.findall("|".join(_COLS_RE), all_cols)
+    # get the column names including the space padding from the actual ps output
+    all_cols = ps_out[0].lower()
+    cols = re.findall("|".join(_COLS_RE), all_cols)
 
-        # pick through each line of output and create a dict with the column 
-        # contents, keyed by the column name. shift the processed part 
-        # of the line off and repeat
-        ps = []
-        for line in ps_out[1:]:
-            if line.strip() == '':
-                continue
+    # pick through each line of output and create a dict with the column 
+    # contents, keyed by the column name. shift the processed part 
+    # of the line off and repeat
+    ps = []
+    for line in ps_out[1:]:
+        if line.strip() == '':
+            continue
 
-            d = {}
-            for col in cols:
-                # use the space padding to determine column contents; remove space 
-                # padding in column name and contents when putting in the dict
-                cname = col.strip()
+        d = {}
+        for col in cols:
+            # use the space padding to determine column contents; remove space 
+            # padding in column name and contents when putting in the dict
+            cname = col.strip()
 
-                d[cname] = line[:len(col)].strip()
-                line = line[len(col):]
-            ps.append(d)
+            d[cname] = line[:len(col)].strip()
+            line = line[len(col):]
+        ps.append(d)
 
-        # return the array of dict's (in ps order, which corresponds to creation time)
-        return ps
+    # return the array of dict's (in ps order, which corresponds to creation time)
+    return ps
 
 
 def kill(container_id):
@@ -172,7 +172,7 @@ def get_ip():
 
     
     
-def get_ssh(container_id=None, image=None, user=None):
+def get_ssh_cmd(container_id=None, image=None, user=None):
     """
     Return a function that will issue ssh commands inside the Docker container
     """
@@ -207,9 +207,16 @@ def get_ssh(container_id=None, image=None, user=None):
 
     docker_ip = get_ip()
 
-    # construct an ssh
-    ssh_cmd = ["ssh", "-o", "StrictHostKeyChecking=no","-p", port, docker_ip]
+    # construct an ssh command
+    return ["ssh", "-o", "StrictHostKeyChecking=no","-p", port, docker_ip]
 
+def get_ssh(container_id=None, image=None, user=None):
+    """
+    get_ssh: return a function that can be used to pipe commands to our docker container
+    via and ssh connection
+    """
+
+    ssh_cmd = get_ssh_cmd(container_id, image, user)
     
     ssh = lambda *args: subprocess.check_call(ssh_cmd+list(args))
     return ssh

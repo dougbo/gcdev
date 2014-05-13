@@ -19,6 +19,7 @@ import argparse
 import subprocess
 import os
 import time
+import sys
 
 import docker
 from gitcmd import git_init_repo
@@ -81,12 +82,32 @@ def get_parser():
                                 help='Project to publish')
 
 
+    # ssh
+    parser_ssh = subparsers.add_parser('ssh', help='Ssh interactively into docker container')
+    parser_ssh.set_defaults(cmd='ssh')
+    parser_ssh.add_argument('--project', dest='project_name',
+                            default=None,
+                            help='Project to ssh into')
+
 
     return parser
 
 
+# docker sub-modules: 
+#  crd: chrome remote desktop
+#  clouddev: tools for cloud development (sublime, git, etc.)
+#  androiddev: android studio
+#  gcp: google cloud platform sdk/apis
+#  gapi: google apis (apps, geo, yt, etc.)
+#  data: *per user* data volume for persistent storage of state
+_GOOGLE_CRD_IMAGE="google/crd-env"
+_GOOGLE_CLOUD_IMAGE="google/cloudtools" 
+_GOOGLE_ANDROID_IMAGE="google/androidtools" 
 
-_GOOGLE_DEV_IMAGE="google/dev-env" # our docker image name
+_DOCKER_CRD=("Dock.crd/", _GOOGLE_CRD_IMAGE)
+_DOCKER_CLOUDTOOLS=("Dock.cloudtools/", _GOOGLE_CLOUD_IMAGE)
+_DOCKER_ANDROIDTOOLS=("Dock.androidtools/", _GOOGLE_ANDROID_IMAGE)
+
 _MAX_SSH_RETRY=5
 
 
@@ -120,6 +141,7 @@ def edit(args):
         return env
 
     project_name = mdds.get('project_name')
+    project_image = mdds.get('project_image')
     # xxx(orr): allow switching between projects
 
     if not project_name:
@@ -134,7 +156,7 @@ def edit(args):
     # if new environment is started, print the container ID
     
     # first, find out how many currently running containers we have
-    _latest_image = "%s:latest" % _GOOGLE_DEV_IMAGE
+    _latest_image = "%s:latest" % project_image
 
     containers = [d for d in docker.ps() if d['image'] == _latest_image]
 
@@ -166,7 +188,7 @@ def edit(args):
 
     # start a new container
 
-    container = docker.start(_GOOGLE_DEV_IMAGE, env=_get_env())
+    container = docker.start(project_image, env=_get_env())
 
     # get an ssh connection into the new container
     ssh = docker.get_ssh()
@@ -228,19 +250,15 @@ def init(args):
         
         mdds.store(arg, argdict[arg])
 
-    # create a docker environment using an underlying base of the Google Cloud
-    # SDK, plus popular API client libraries.
+    # make sure that our component images are built
+    for dir, tag in [_DOCKER_CRD, _DOCKER_CLOUDTOOLS, _DOCKER_ANDROIDTOOLS]:
+        output = docker.do(["build", "-t", tag, dir])
+        if not output:
+            raise gcd_errors.Fail("Docker build failed for %s" % tag)
 
-    # xxx(orr): probably consolidate this into one well-known Dockerfile?
-    output = docker.do(["build", "-t", _GOOGLE_DEV_IMAGE, "."])
-    if not output:
-        raise gcd_errors.Fail("Docker build failed")
+    # xxx(orr) -- decide which image based on parameters
+    mdds.store('project_image', _DOCKER_ANDROIDTOOLS[1])
 
-    # xxx(orr)
-    #_docker("run -t google-dev pull google/sdk")
-    #_docker("run -t google-dev pull google/apps-apis")
-    #_docker("run -t google-dev pull google/geo-apis")
-    #_docker("run -t google-dev pull google/yt-apis")
 
     # add in a specialized version of whatever framework the user is intending
     # to use in their language of choice
@@ -270,6 +288,22 @@ def publish(args):
     """
     raise gcd_errors.Fail("Not yet implemented")
 
+def ssh(args):
+    """
+    invoke ssh interactively with the current project
+    """
+
+    # xxx(orr)
+    # you can only ssh into a running instance (i.e., one that's been started via 'edit')
+    try:
+        ssh_cmd = docker.get_ssh_cmd()
+    except:
+        ssh_cmd = None
+
+    if not ssh_cmd:
+        gcd_errors.Fail("Couldn't start connection")
+
+    subprocess.check_call(ssh_cmd)
 
 if __name__ == '__main__':
     class v:

@@ -1,8 +1,10 @@
-#
-#
+# Chrome Remote Desktop Docker environment
+
+# Install Chrome remote desktop and set up an X-based platform that we can attach
+# environments and set up tools on
+
 FROM debian
 MAINTAINER doug orr "doug.orr@gmail.com"
-
 
 # add repo for chrome remote desktop
 RUN echo deb http://dl.google.com/linux/chrome-remote-desktop/deb/ stable main >/etc/apt/sources.list.d/chromeos.list
@@ -14,32 +16,6 @@ RUN apt-get install -y apt-utils
 # get crd
 RUN apt-get -y --allow-unauthenticated install chrome-remote-desktop
 
-# get git
-RUN apt-get install -y git
-
-# get the various google api runtime packages
-# get sublime
-# ENV SUBLIME sublime-text_build-3047_amd64.deb
-# ADD http://c758482.r82.cf2.rackcdn.com/$SUBLIME /tmp/$SUBLIME
-# RUN dpkg -i /tmp/$SUBLIME
-
-
-RUN apt-get install -y bzip2
-ADD http://c758482.r82.cf2.rackcdn.com/Sublime%20Text%202.0.2%20x64.tar.bz2 /opt/sublime.tbz
-RUN cd /opt; tar -xvjf sublime.tbz
-RUN ln -s /opt/Sublime\ Text\ 2/sublime_text /usr/bin/sublime
-
-
-
-# google cloud SDK
-RUN apt-get install -y curl
-# RUN curl https://dl.google.com/dl/cloudsdk/release/install_google_cloud_sdk.bash | bash
-
-# ** PYTHON **
-# popular GAPI client libraries: drive, geo, youtube, etc.
-ENV GOOGLE_OAUTH_CLIENT python-google-api-python-client_1.2.0-1_all.deb
-ADD https://google-api-python-client.googlecode.com/files/$GOOGLE_OAUTH_CLIENT /tmp/
-RUN dpkg -i /tmp/$GOOGLE_OAUTH_CLIENT
 
 # Set the env variable DEBIAN_FRONTEND to noninteractive
 ENV DEBIAN_FRONTEND noninteractive
@@ -56,7 +32,7 @@ RUN apt-get install -y locales
 RUN apt-get -y upgrade
 
 # Copy the files into the container
-ADD . /src
+ADD src/ /src
 
 
 # minor cleanup

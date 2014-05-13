@@ -47,22 +47,15 @@ echo "export CHROME_REMOTE_DESKTOP_DEFAULT_DESKTOP_SIZES=1024x800" >> $DOCKERENV
 
 echo set up session
 echo "#!/usr/bin/env bash" >$DOCKERENV_HOME/.xsession
-echo "xterm &" >$DOCKERENV_HOME/.xsession
-echo "sublime &" >>$DOCKERENV_HOME/.xsession
-echo "rox &" >>$DOCKERENV_HOME/.xsession
-echo "exec startfluxbox" >>$DOCKERENV_HOME/.xsession
 
-
-if 0; then 
-su $DOCKERENV_USER <<EOF
-cd $DOCKERENV_HOME; 
-git clone git@github.com:googledrive/dredit.git
-cd dredit
-git submodule init
-git submodule update --recursive
-EOF
-fi
-
+startprogram=$1; shift
+echo >>$DOCKERENV_HOME/.xsession
+for svc in $*; do
+  echo "SESSION: ", $svc
+  echo "$svc &" >>$DOCKERENV_HOME/.xsession
+done
+echo $startprogram >>$DOCKERENV_HOME/.xsession
+chown $DOCKERENV_USER:users .xsession
 
 
 ### finish initializing the system ###
