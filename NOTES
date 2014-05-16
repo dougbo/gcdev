@@ -1,0 +1,68 @@
+
+5/14
+todo:
+add data volume
+fix android studio permissions -- try making a group setting
+X factor out "start" in case you run ssh before you've started the vm
+add -android, -appengine; only build/pull containers you need
+pull containers unless --build specified [for now always build]
+
+dev environment--
+establish git connection; clone/pull initial setup
+set up framework
+
+common uses:
+gcd init --project foo --android [build/pull's android which b/p's crd, launches studio]
+gcd init --project bar --appengine [b/p'cloudtools->crd, launches sublime]
+[smae] --repo git@github.com:dougbo/baz.git [populates source area from repo; saves
+       repo name for subsequent updates]
+
+
+? do we always use the app engine metadata store?
+? does that mean we always authenticate? we always need the gcloud with the main gcdev?
+? do we put gcdev in its own container 
+
+5/12 pm
+todo:
+x split google dev env
+add data fork 
+
+5/12 am
+todo:
+. add template
+. split google dev env
+. split android studio; cloud work
+
+issues:
+. make local store per-user per-project
+. take container as parameter for edit
+. resume existing ssh session
+.. maybe refuse if there's more than one?
+
+
+gcdev init --project dougbo  
+<- sets default project. need to gcdev set [project] or gcedit --project <x> to change
+<- also sets initial parameters, some of which can't be reset: e.g., editor/template/lang
+
+gcdev list [--project x] [-v]
+<- print the container id's running matching the current project id
+<- print all containers and project id's
+
+gcdev edit [--project x] [--container x] [--restart] 
+<- starts or restarts per-user editing environment for given project
+. standard usage: no running containers -- creates per-user container and runs crd
+. reports container ID
+
+. if one container exists and is running, or if container specified and is running
+restarts crd if --restart
+.. else 
+.. verifies project is the same as current and reports container ID; else restarts crd
+. reports container ID
+
+5/8
+q: could run this script either in cloud or from some remote device
+-- make it so that it runs in the cloud; we're all-in, plus that way 
+it works on chromebooks
+-- that suggests that you want ssh capability fairly early on, and that there will be a second phase of init that happens over ssh
+
+template can be ADD'ed from dockerfile or via docker cmd

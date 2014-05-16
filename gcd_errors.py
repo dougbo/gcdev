@@ -12,3 +12,10 @@ class InvalidCondition(Exception):
     us a condition we can't interpret
     """
     pass
+
+class NoAuthKeys(Exception):
+    """
+    Invalid Condition: some mismatch of parameters or specifications gave
+    us a condition we can't interpret
+    """
+    pass

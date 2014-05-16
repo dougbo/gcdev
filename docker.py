@@ -12,6 +12,7 @@ def do(cmd_vec):
     """
     try:
         docker_cmd = ["docker"]+cmd_vec
+        print "DOCKER: ", docker_cmd
         output = subprocess.check_output(docker_cmd)
         # return array of lines
         return output.split("\n")
@@ -83,7 +84,9 @@ def start(image, env={}):
         cmd_vec.append("-e")
         cmd_vec.append("%s=%s" % (key, env[key]))
     cmd_vec.append(image)
-    return do(cmd_vec)
+    
+    # return container id (there's always a trailing null we strip off)
+    return do(cmd_vec)[0]
 
 
 
@@ -148,14 +151,14 @@ def ifconfig():
         return ifconfig
 
     all_config = subprocess.check_output("/sbin/ifconfig").split("\n\n")
-    for c in all_config:
-        if c[0:len("docker")] == "docker":
+    docker_config = [c[len("docker0"):] 
+                     for c in all_config if c[0:len("docker")] == "docker"]
 
-            # xxx(orr): we only work properly with one docker network
-            docker_ifconfig = c[len("docker0"):]
-            return _ifconfig_parse(docker_ifconfig)
+    if len(docker_config) != 1:
+        # xxx(orr): we only work properly with one docker network
+        raise Exception("Fail: currently must have only one docker* interface")
 
-    return None
+    return _ifconfig_parse(docker_config[0])
 
 
 
@@ -172,7 +175,7 @@ def get_ip():
 
     
     
-def get_ssh_cmd(container_id=None, image=None, user=None):
+def get_ssh_cmd(container_id=None):
     """
     Return a function that will issue ssh commands inside the Docker container
     """
@@ -182,10 +185,6 @@ def get_ssh_cmd(container_id=None, image=None, user=None):
     rec = None
 
     for i in ps_info:
-
-        if not rec and (not container_id or (i['image'] == image and i['ports'])):
-            # record the first record that matches our image and has a port spec
-            rec = i
 
         if i['container id'] == container_id:
             # exact match trumps
@@ -210,13 +209,13 @@ def get_ssh_cmd(container_id=None, image=None, user=None):
     # construct an ssh command
     return ["ssh", "-o", "StrictHostKeyChecking=no","-p", port, docker_ip]
 
-def get_ssh(container_id=None, image=None, user=None):
+def get_ssh(container_id=None):
     """
     get_ssh: return a function that can be used to pipe commands to our docker container
     via and ssh connection
     """
 
-    ssh_cmd = get_ssh_cmd(container_id, image, user)
+    ssh_cmd = get_ssh_cmd(container_id=container_id)
     
     ssh = lambda *args: subprocess.check_call(ssh_cmd+list(args))
     return ssh

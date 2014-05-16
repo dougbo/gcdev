@@ -33,6 +33,7 @@ RUN apt-get -y upgrade
 
 # Copy the files into the container
 ADD src/ /src
+RUN groupadd androiddev
 
 
 # minor cleanup
@@ -47,11 +48,8 @@ RUN ln -s /usr/bin/Xvfb /usr/bin/xvfb
 # DON"T STORE PASSWORDS IN THIS CONTAINER
 RUN chmod go+r /etc/shadow
 
-# https://github.com/dotcloud/docker/issues/5126
-RUN chmod 1777 /dev/shm
-
 # allow ssh -- we'll have to dig the port out of the ps entry later
 EXPOSE 22
 
 # Customize the environment and start ssh services.
-CMD ["/bin/bash", "/src/docker-start.sh"]
+CMD ["/bin/bash", "/src/crd-start.sh"]

@@ -26,6 +26,7 @@ from gitcmd import git_init_repo
 from metadatadatastore import MetadataDataStore
 import gcd_errors
 
+_SHORT_CONTAINER_ID_LEN=12    # there's a short and long ID form
 
 def get_parser():
     """Argument parser for gcdev
@@ -48,15 +49,14 @@ def get_parser():
                              default=None,
                              help='Set development project name')
     parser_init.add_argument('--appengine', action='store_true', dest='is_gae',
-                             help='Initialize App Engine configuration')
-    parser_init.add_argument('--scopes', dest='project_scopes',
-                             nargs='*', action='append',
-                             help='Set authorization scopes')
+                             help='Initialize for App Engine development')
+    parser_init.add_argument('--android', action='store_true', dest='is_android',
+                             help='Intialize for Android development')
+    parser_init.add_argument('--emul', action='store_true', dest='emul',
+                             help='Initialize for Andoid+emulation development')
     parser_init.add_argument('--repo', dest='git_repo',
-                             default=None,
-                             help='Set git repository')
+                             help='Set git repository to pull from/push to')
     parser_init.add_argument('--lang', dest='project_lang',
-                             default=None,
                              help='Set language:framework for default template')
 
     # Edit
@@ -66,7 +66,6 @@ def get_parser():
                              default=None,
                              help='Project to edit')
     parser_edit.add_argument('--desktop_name', dest='crd_name',
-                             default=None, 
                              help='Name of the Chrome Remote Desktop session')
     parser_edit.add_argument('--restart', dest='restart',
                              default=False, action='store_true',
@@ -85,9 +84,10 @@ def get_parser():
     # ssh
     parser_ssh = subparsers.add_parser('ssh', help='Ssh interactively into docker container')
     parser_ssh.set_defaults(cmd='ssh')
-    parser_ssh.add_argument('--project', dest='project_name',
-                            default=None,
-                            help='Project to ssh into')
+    parser_ssh.add_argument('--image', dest='image',
+                            help='Image to use to create container to ssh into')
+    parser_ssh.add_argument('--container', dest='container',
+                            help='Container to ssh into')
 
 
     return parser
@@ -103,25 +103,26 @@ def get_parser():
 _GOOGLE_CRD_IMAGE="google/crd-env"
 _GOOGLE_CLOUD_IMAGE="google/cloudtools" 
 _GOOGLE_ANDROID_IMAGE="google/androidtools" 
+_GOOGLE_ANDROIDPLUSEMUL_IMAGE="google/androidtools-emul" 
 
 _DOCKER_CRD=("Dock.crd/", _GOOGLE_CRD_IMAGE)
 _DOCKER_CLOUDTOOLS=("Dock.cloudtools/", _GOOGLE_CLOUD_IMAGE)
 _DOCKER_ANDROIDTOOLS=("Dock.androidtools/", _GOOGLE_ANDROID_IMAGE)
+_DOCKER_ANDROIDTOOLSPLUSEMUL=("Dock.androidtools+emul/", _GOOGLE_ANDROIDPLUSEMUL_IMAGE)
 
-_MAX_SSH_RETRY=5
+_MAX_SSH_RETRY=8
 
 
-def edit(args):
+def _start(image, mdds):
     """
-    Use the parameters stored in the metadata store to guide creation of a
-    cloud-based edit session that we tie in with, via GVC.
+    Create a new container from the given image
     """
-
-    argdict = vars(args)
-
-    mdds = MetadataDataStore()
 
     def _get_env():
+        """
+        _get_env: create a dict with the env variables we wish to pass to the 
+        docker container
+        """
         try:
             authkeys = subprocess.check_output(["ssh-add", "-L"])
         except subprocess.CalledProcessError:
@@ -140,58 +141,24 @@ def edit(args):
             }
         return env
 
-    project_name = mdds.get('project_name')
-    project_image = mdds.get('project_image')
-    # xxx(orr): allow switching between projects
-
-    if not project_name:
-        raise gcd_errors.InvalidCondition("Uninitialized project")
-
     # edit: start a new containerized editing environment
 
-    # (a) if none exists, start a new one
-    # (b) if one exists and no container ID specified, restart under the new project
-    # (c) if multiple exist, require that the user specify the container ID
-
-    # if new environment is started, print the container ID
-    
     # first, find out how many currently running containers we have
-    _latest_image = "%s:latest" % project_image
+    latest_image = "%s:latest" % image
 
-    containers = [d for d in docker.ps() if d['image'] == _latest_image]
+    containers = [d for d in docker.ps() if d['image'] == latest_image]
+    print "EXISTING CONTAINERS: ", containers
 
     if len(containers):
         print "%12.12s\t%s" % ("CONTAINER ID", "CREATED")
     for c in containers:
         print "%12.12s\t%s" % (c['container id'], c['created'])
 
-
-    c_list = []
-
-    target = ('container' in argdict and argdict['container']) or None
-    if target:
-        c_list = [c for c in containers if c['container id'] == target]
-        if len(c_list) == 0:
-            raise gcd_errors.InvalidCondition("container %s does not exist" % target)
-
-    elif len(containers) == 1:
-        target = containers[0]['container id']
-    elif len(containers) > 1:
-        raise gcd_errors.InvalidCondition("must specify container ID and --restart")
-                
-    if target:
-        if argdict['restart']:
-            docker.kill(target)
-        else:
-            raise gcd_errors.Fail("existing editor running; use --restart")
-
-
-    # start a new container
-
-    container = docker.start(project_image, env=_get_env())
+    container = docker.start(latest_image, env=_get_env())[0:_SHORT_CONTAINER_ID_LEN]
+    print "started: container=", container
 
     # get an ssh connection into the new container
-    ssh = docker.get_ssh()
+    ssh = docker.get_ssh(container_id=container)
     if not ssh:
         raise gcd_errors.Fail("container failed to start")
 
@@ -201,22 +168,12 @@ def edit(args):
             output = ssh("echo","Connected")
             break
         except subprocess.CalledProcessError:
-            time.sleep(timeout*5)
+            if timeout == _MAX_SSH_RETRY:
+                raise gcd_errors.Fail("Couldn't connect to ssh service")
+            time.sleep(timeout*10)
 
-    # fetch the latest of the user's work into the template
-    if mdds.get('active_template'):
-        user_template = mdds.get('user_template')
-        git_repo = mdds.get('git_repo')
-        ssh("git --repo %s pull %s" (git_repo, user_template))
-        
-    
-    # otherwise, layer on top of it Chrome Remote Desktop,
-    # specialized to bring up the
-    # editor of their choice which is specialized to their GIT repository
-    crd_name = mdds.get('crd_name') or project_name
-    _CRD_CMD="/opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth"
-    
-    ssh(". .profile; %s %s 2>/dev/null" % (_CRD_CMD, "--name=%s" % crd_name))
+    # note that we have a container, and track what image it's with
+    return container
 
 
 def init(args):
@@ -235,30 +192,44 @@ def init(args):
 
     _NON_PERSISTENT_ARGS=['cmd'] # arguments not intended to persist
 
-
     # check the parameters for semantic issues
     argdict = vars(args)
-    if 'project_name' not in argdict or argdict['project_name'] == None:
+    if argdict['project_name'] == None:
         raise gcd_errors.Fail("Project name must be specified")
+    if argdict['is_gae'] and argdict['is_android']:
+        raise gcd_errors.InvalidCondition("Cannot specify both Android and App Engine")
 
-    # store the current project state in the metadata store for this user
-    mdds = MetadataDataStore()
+
+    # store the current project state in the metadata store for this user; 
+    # restart database
+    mdds = MetadataDataStore(init=True)
 
     for arg in argdict:
         if arg in _NON_PERSISTENT_ARGS:
             pass
-        
         mdds.store(arg, argdict[arg])
 
+
     # make sure that our component images are built
-    for dir, tag in [_DOCKER_CRD, _DOCKER_CLOUDTOOLS, _DOCKER_ANDROIDTOOLS]:
-        output = docker.do(["build", "-t", tag, dir])
+    if argdict['is_gae']:
+        images = [_DOCKER_CLOUDTOOLS]
+    elif argdict['is_android'] or argdict['emul']:
+        if argdict['emul']:
+            images = [_DOCKER_ANDROIDTOOLSPLUSEMUL]
+        else:
+            images = [_DOCKER_ANDROIDTOOLS]
+    else:
+        images = [_DOCKER_CRD]
+
+    for dir, tag in images:
+        output = docker.do(["build", "--rm=true", "-t", tag, dir])
         if not output:
             raise gcd_errors.Fail("Docker build failed for %s" % tag)
+        print "BUILD: ", tag, output
 
-    # xxx(orr) -- decide which image based on parameters
-    mdds.store('project_image', _DOCKER_ANDROIDTOOLS[1])
-
+    image = images[-1][1]
+    mdds.store('project_image', image)
+    print "INIT: image: '%s'" % image
 
     # add in a specialized version of whatever framework the user is intending
     # to use in their language of choice
@@ -271,6 +242,50 @@ def init(args):
         git("push %s" % template)
         
         mdds.store('active_template', 'true')
+
+
+def edit(args):
+    """
+    Use create the cloud-based container for program development based on 
+    parameters in the metadata store, modified by our arguments
+
+    edit --image <image>, starts a new container with that image
+    edit [no args] 
+        if mdds['project_image'] starts a new container from that image
+    """
+
+    mdds = MetadataDataStore()
+    project_name = mdds.get("project_name")
+    if not project_name:
+        raise gcd_errors.InvalidCondition("Uninitialized project")
+
+    argdict = vars(args)
+    image = argdict.get('image') or mdds.get('project_image')
+
+    print "Edit: image: ", image
+    container = _start(image, mdds)
+
+    print "Edit: using container ", container
+    mdds.store('project_image', image)
+    mdds.store('project_container', container)
+
+    # fetch the latest of the user's work into the template
+    if mdds.get('active_template'):
+        user_template = mdds.get('user_template')
+        git_repo = mdds.get('git_repo')
+        ssh("git --repo %s pull %s" (git_repo, user_template))
+        
+    
+    # otherwise, layer on top of it Chrome Remote Desktop,
+    # specialized to bring up the
+    # editor of their choice which is specialized to their GIT repository
+    crd_name = mdds.get('crd_name') or project_name
+    _CRD_CMD="/opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth"
+    
+    ssh = docker.get_ssh(container_id=container)
+    ssh(". .profile; %s %s" % (_CRD_CMD, "--name=%s" % crd_name))
+
+
 
 
 def gen_template(lang):
@@ -290,20 +305,73 @@ def publish(args):
 
 def ssh(args):
     """
-    invoke ssh interactively with the current project
+    invoke ssh interactively with a container (possibly in the current project)
+
+    ssh --image <image> will start an image and ssh to that container
+    ssh --container <container> will ssh to that container
+
+    ssh [no args]:
+        if mdds['container'] ssh to that container
+        if mdds['project_image'] start that image, ssh to that container
     """
 
-    # xxx(orr)
-    # you can only ssh into a running instance (i.e., one that's been started via 'edit')
-    try:
-        ssh_cmd = docker.get_ssh_cmd()
-    except:
-        ssh_cmd = None
+    def _container_exists(container):
+        # make sure it's still running
+        for c in docker.ps():
+            if c['container id'] == container[:_SHORT_CONTAINER_ID_LEN]:
+                return True
 
-    if not ssh_cmd:
-        gcd_errors.Fail("Couldn't start connection")
+        return False
 
-    subprocess.check_call(ssh_cmd)
+    def _ssh_to_container(container):
+        try:
+            # get back the raw command so that we can exec it
+            ssh_cmd = docker.get_ssh_cmd(container_id=container)
+        except:
+            gcd_errors.Fail("Couldn't start connection")
+
+        return subprocess.check_call(ssh_cmd)
+
+
+
+    argdict = vars(args)
+
+    mdds = MetadataDataStore()
+
+    if argdict.get('image', None) and argdict.get('container', None):
+        raise gcd_errors.InvalidCondition("Cannot specify both --image and --container")
+
+    container = argdict.get('container', None)
+    if container:
+        # we directly reference an existing container
+        print "SSH: container: '%s'" % (container)
+        return _ssh_to_container(container)
+
+    # may need to start a container
+    image = argdict.get('image')
+    if image:
+        container = _start(image, mdds)
+
+        print "SSH: image: '%s' container '%s'" % (image, container)
+        return _ssh_to_container(container)
+
+    # no explicit image or container. see if the current project has a container
+    container = mdds.get('project_container')
+    if container:
+        print "SSH: container: '%s'" % (container)
+        return _ssh_to_container(container)
+
+    # no project container -- if we have an project image, start it and use that container
+    image = mdds.get('project_image')
+    if not image:
+        raise gcd_errors.InvalidCondition("No --image or initialized project")
+
+    container = _start(image, mdds)
+    print "SSH: image: '%s' container '%s'" % (image, container)
+    return _ssh_to_container(container)
+
+
+
 
 if __name__ == '__main__':
     class v:

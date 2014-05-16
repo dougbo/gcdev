@@ -3,4 +3,5 @@
 *.json
 *.bak
 *.pyc
+*.tgz
 ETC

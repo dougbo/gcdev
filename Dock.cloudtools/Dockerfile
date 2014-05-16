@@ -22,12 +22,15 @@ RUN rm -f /usr/bin/sublime
 RUN ln -s /opt/Sublime*/sublime_text /usr/bin/sublime
 RUN rm -f /opt/sublime.tar.bz
 
+
 # ** install the google cloud platform tools **
 
 RUN wget https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.zip && unzip google-cloud-sdk.zip && rm google-cloud-sdk.zip
 RUN google-cloud-sdk/install.sh --usage-reporting=true --path-update=true --bash-completion=true --rc-path=/.bashrc --disable-installation-options
 RUN yes | google-cloud-sdk/bin/gcloud components update pkg-go pkg-python pkg-java
 
+
+
 # Customize the environment; define X clients and start ssh services.
 #  startfluxbox xterm sublime rox fluxbox
-CMD ["/bin/bash", "/src/docker-start.sh", "startfluxbox", "xterm", "sublime", "rox", "fluxbox"]
+CMD ["/bin/bash", "/src/crd-start.sh", "startfluxbox", "xterm", "sublime", "rox", "fluxbox"]

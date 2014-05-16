@@ -5,7 +5,6 @@ MAINTAINER doug orr "doug.orr@gmail.com"
 # define ENV's for version-specific downloads
 # get the android studio and r22 sdk; put the sdk in studio's sdk area
 ENV STUDIO android-studio-bundle-133.1028713-linux.tgz
-ENV STUDIO_BASE android-studio
 ENV SDK android-sdk_r22.6.2-linux.tgz
 
 
@@ -20,21 +19,28 @@ RUN apt-get install -y git
 # get java
 RUN apt-get install -y openjdk-7-jre openjdk-7-jdk
 
+# Copy the files into the container
+ADD src/ /src
+
 # * get android sdk *
 
-ADD http://dl.google.com/android/studio/install/0.4.6/$STUDIO /opt/$STUDIO
+# there's some funky group thing -- make sure that there's group permission
+# for the studio so that we can install it in a well known place rather than
+# installing to someone's home directory. plus chgrp -R takes forever in this 
+# context
+
 # make sure we know the directory name the tar file goes into
-RUN mkdir /opt/$STUDIO_BASE
-RUN cd /opt/$STUDIO_BASE ; tar --strip=1 -xvzf ../$STUDIO
+# ADD http://dl.google.com/android/studio/install/0.4.6/$STUDIO /home/$STUDIO
+ADD $STUDIO /home/
+ENV STUDIO_BASE android-studio
+# RUN mkdir /home/$STUDIO_BASE
+# RUN cd /home/$STUDIO_BASE ; tar --group=androiddev --strip=1 -xzf /src/$STUDIO
 
-ADD http://dl.google.com/android/$SDK /opt/$SDK
-RUN cd /opt; tar -C $STUDIO_BASE/sdk  --strip=1 --show-transformed -xvf $SDK
+# ADD http://dl.google.com/android/$SDK /home/
+ADD $SDK /home/
 
-# install the i386 world so that the android emulator will work
-RUN apt-get -y install libc6-i386
-RUN dpkg --add-architecture i386
-RUN apt-get update
-RUN apt-get -y install ia32-libs
+# RUN cd /home; tar -C $STUDIO_BASE/sdk --group=androiddev --strip=1 --show-transformed -xvf /src/$SDK
+
 
 # Customize the environment and start ssh services.
-CMD ["/bin/bash", "/src/docker-start.sh", "/opt/android-studio/bin/studio.sh"]
+CMD ["/bin/bash", "/src/android-start.sh"]
