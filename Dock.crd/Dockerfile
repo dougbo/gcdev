@@ -48,6 +48,8 @@ RUN ln -s /usr/bin/Xvfb /usr/bin/xvfb
 # DON"T STORE PASSWORDS IN THIS CONTAINER
 RUN chmod go+r /etc/shadow
 
+RUN chmod 1777 /dev/shm
+
 # allow ssh -- we'll have to dig the port out of the ps entry later
 EXPOSE 22
 

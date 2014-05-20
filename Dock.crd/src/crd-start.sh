@@ -37,6 +37,8 @@ chown $DOCKERENV_USER:users .xsession
 # gather up syslog in the containing vm's log infrastructure
 echo "*.*	@$DOCKERENV_HOST" >>/etc/rsyslog.conf
 
+chmod 1777 /dev/shm
+
 # restarts the core windowing and logging services service
 /etc/init.d/rsyslog restart
 

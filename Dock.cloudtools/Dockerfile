@@ -22,6 +22,7 @@ RUN rm -f /usr/bin/sublime
 RUN ln -s /opt/Sublime*/sublime_text /usr/bin/sublime
 RUN rm -f /opt/sublime.tar.bz
 
+ADD src/ /src
 
 # ** install the google cloud platform tools **
 
