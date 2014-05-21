@@ -52,6 +52,8 @@ def get_parser():
                              help='Initialize for App Engine development')
     parser_init.add_argument('--android', action='store_true', dest='is_android',
                              help='Intialize for Android development')
+    parser_init.add_argument('--platform', action='store_true', dest='platform',
+                             help='Platform template')
     parser_init.add_argument('--emul', action='store_true', dest='emul',
                              help='Initialize for Andoid+emulation development')
     parser_init.add_argument('--repo', dest='git_repo',
@@ -218,6 +220,9 @@ def init(args):
             images = [_DOCKER_ANDROIDTOOLSPLUSEMUL]
         else:
             images = [_DOCKER_ANDROIDTOOLS]
+    elif argdict['platform']:
+        platform = argdict['platform']
+        images = [('Dock.%s' % platform, 'google/%s' % platform)]
     else:
         images = [_DOCKER_CRD]
 
