@@ -31,7 +31,6 @@ done
 echo $startprogram >>$DOCKERENV_HOME/.xsession
 chown $DOCKERENV_USER:users .xsession
 
-
 ### finish initializing the system ###
 
 # gather up syslog in the containing vm's log infrastructure

@@ -4,6 +4,7 @@ Docker: module for working with docker via command line
 
 import subprocess
 import re
+import glob
 
 def do(cmd_vec):
     """
@@ -79,11 +80,27 @@ def start(image, env={}):
     start: start a new instance of a docker image; propagate environment
     variables.
     """
+
+    # create the run command; assign tty's run as a daemon...
     cmd_vec = ["run", "-t", "-d", "-P"]
+
+    first = True
+    ssh_dir = glob.glob('/tmp/ssh*')
+    for dir in ssh_dir:
+        # pick out all of the ssh auth socket dirs (hopefully there's only one)
+        # and pass them as mount points; turn the first into an ssh env var
+        cmd_vec += ['-v', "%s:%s" % (dir, dir)]
+        if first:
+            agent = glob.glob('%s/agent.*' % dir)
+            first = False
+            env['SSH_AUTH_SOCK'] = agent[0]
+
     for key in env.keys():
         cmd_vec.append("-e")
         cmd_vec.append("%s=%s" % (key, env[key]))
     cmd_vec.append(image)
+
+    print "DOCKER: ", cmd_vec
     
     # return container id (there's always a trailing null we strip off)
     return do(cmd_vec)[0]

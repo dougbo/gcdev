@@ -275,14 +275,15 @@ def edit(args):
         git_repo = mdds.get('git_repo')
         ssh("git --repo %s pull %s" (git_repo, user_template))
         
+
+    ssh = docker.get_ssh(container_id=container)
     
     # otherwise, layer on top of it Chrome Remote Desktop,
     # specialized to bring up the
     # editor of their choice which is specialized to their GIT repository
-    crd_name = mdds.get('crd_name') or project_name
+    crd_name = argdict.get('crd_name') or project_name
+    print "CRD: ", crd_name, mdds.get('crd_name')
     _CRD_CMD="/opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth"
-    
-    ssh = docker.get_ssh(container_id=container)
     ssh(". .profile; %s %s" % (_CRD_CMD, "--name=%s" % crd_name))
 
 

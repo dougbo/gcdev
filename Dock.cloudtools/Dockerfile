@@ -22,14 +22,19 @@ RUN rm -f /usr/bin/sublime
 RUN ln -s /opt/Sublime*/sublime_text /usr/bin/sublime
 RUN rm -f /opt/sublime.tar.bz
 
-ADD src/ /src
+# emacs and vim just for good measure
+RUN apt-get install -y emacs vim
 
-# ** install the google cloud platform tools **
+
+# install the google cloud platform tools
 
 RUN wget https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.zip && unzip google-cloud-sdk.zip && rm google-cloud-sdk.zip
 RUN google-cloud-sdk/install.sh --usage-reporting=true --path-update=true --bash-completion=true --rc-path=/.bashrc --disable-installation-options
 RUN yes | google-cloud-sdk/bin/gcloud components update pkg-go pkg-python pkg-java
 
+
+# add our custom scripts
+ADD src/ /src
 
 
 # Customize the environment; define X clients and start ssh services.
