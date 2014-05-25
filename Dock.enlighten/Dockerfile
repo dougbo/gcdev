@@ -3,9 +3,12 @@
 FROM google/crd-env
 MAINTAINER doug orr "doug.orr@gmail.com"
 
-ADD http://www.deb17e.com/debian/debe17-svn_1.1.1-0_all.deb /src
-RUN dpkg -i /src/debe17-svn_1.1.1-0_all.deb
-RUN apt-get install -f
+
+ADD http://download.enlightenment.org/rel/libs/efl/efl-1.9.4.tar.gz /opt
+ADD http://download.enlightenment.org/rel/apps/enlightenment/enlightenment-0.18.8.tar.gz /opt/
+RUN apt-get install -y gcc g++
+RUN apt-get install -y pkg-config
+RUN apt-get install -y openssl
 
 # define ENV's for version-specific downloads
 ENV SUBLIME http://c758482.r82.cf2.rackcdn.com/Sublime%20Text%202.0.2%20x64.tar.bz2
@@ -17,6 +20,7 @@ RUN apt-get update && apt-get install -y -qq --no-install-recommends wget unzip 
 
 # get git
 RUN apt-get install -y git
+
 
 # get sublime
 
@@ -38,4 +42,5 @@ RUN yes | google-cloud-sdk/bin/gcloud components update pkg-go pkg-python pkg-ja
 
 # Customize the environment; define X clients and start ssh services.
 #  startfluxbox xterm sublime rox fluxbox
-CMD ["/bin/bash", "/src/crd-start.sh", "enlightenment_start", "xterm", "sublime", "rox"]
+# , "enlightenment_start", "xterm", "sublime", "rox"]
+CMD ["/bin/bash", "/src/crd-start.sh"]

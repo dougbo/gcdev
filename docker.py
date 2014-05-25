@@ -92,8 +92,9 @@ def start(image, env={}):
         cmd_vec += ['-v', "%s:%s" % (dir, dir)]
         if first:
             agent = glob.glob('%s/agent.*' % dir)
-            first = False
-            env['SSH_AUTH_SOCK'] = agent[0]
+            if agent:
+                first = False
+                env['DOCKENV_AUTH_SOCK'] = agent[0]
 
     for key in env.keys():
         cmd_vec.append("-e")

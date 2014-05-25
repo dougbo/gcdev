@@ -35,4 +35,4 @@ ADD $STUDIO /home/
 ADD $SDK /home/
 
 # Customize the environment and start ssh services.
-CMD ["/bin/bash", "/src/android-start.sh"]
+CMD ["/bin/bash", "/src/android-dl-start.sh"]

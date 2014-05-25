@@ -30,16 +30,8 @@ ADD src/ /src
 # context
 
 # make sure we know the directory name the tar file goes into
-# ADD http://dl.google.com/android/studio/install/0.4.6/$STUDIO /home/$STUDIO
-ADD $STUDIO /home/
-ENV STUDIO_BASE android-studio
-# RUN mkdir /home/$STUDIO_BASE
-# RUN cd /home/$STUDIO_BASE ; tar --group=androiddev --strip=1 -xzf /src/$STUDIO
-
-# ADD http://dl.google.com/android/$SDK /home/
-ADD $SDK /home/
-
-# RUN cd /home; tar -C $STUDIO_BASE/sdk --group=androiddev --strip=1 --show-transformed -xvf /src/$SDK
+ADD http://dl.google.com/android/studio/install/0.4.6/$STUDIO /home/
+ADD http://dl.google.com/android/$SDK /home/
 
 
 # Customize the environment and start ssh services.
