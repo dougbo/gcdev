@@ -267,10 +267,10 @@ def edit(args):
     argdict = vars(args)
     image = argdict.get('image') or mdds.get('project_image')
 
-    print "Edit: image: ", image
+    print "EDIT: image: ", image
     container = _start(image, mdds)
 
-    print "Edit: using container ", container
+    print "EDIT: using container ", container
     mdds.store('project_image', image)
     mdds.store('project_container', container)
 
@@ -287,7 +287,6 @@ def edit(args):
     # specialized to bring up the
     # editor of their choice which is specialized to their GIT repository
     crd_name = argdict.get('crd_name') or project_name
-    print "CRD: ", crd_name, mdds.get('crd_name')
     _CRD_CMD="/opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth"
     ssh(". .profile; %s %s" % (_CRD_CMD, "--name=%s" % crd_name))
 

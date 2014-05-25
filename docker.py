@@ -13,7 +13,7 @@ def do(cmd_vec):
     """
     try:
         docker_cmd = ["docker"]+cmd_vec
-        print "DOCKER: ", docker_cmd
+        # print "DOCKER: ", docker_cmd
         output = subprocess.check_output(docker_cmd)
         # return array of lines
         return output.split("\n")
@@ -101,7 +101,7 @@ def start(image, env={}):
         cmd_vec.append("%s=%s" % (key, env[key]))
     cmd_vec.append(image)
 
-    print "DOCKER: ", cmd_vec
+    # print "DOCKER: ", cmd_vec
     
     # return container id (there's always a trailing null we strip off)
     return do(cmd_vec)[0]

@@ -32,7 +32,10 @@ ADD src/ /src
 # make sure we know the directory name the tar file goes into
 ADD http://dl.google.com/android/studio/install/0.4.6/$STUDIO /home/
 ADD http://dl.google.com/android/$SDK /home/
+RUN chmod a+rx /home/$STUDIO /home/$SDK
 
+# RUN cd /home; tar -xvf $STUDIO
+# RUN cd /home; tar -xvf $SDK
 
 # Customize the environment and start ssh services.
 CMD ["/bin/bash", "/src/android-start.sh"]

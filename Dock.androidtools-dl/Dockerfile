@@ -33,6 +33,7 @@ ADD src/ /src
 # ADD http://dl.google.com/android/studio/install/0.4.6/$STUDIO /home/$STUDIO
 ADD $STUDIO /home/
 ADD $SDK /home/
+chmod a+rx /home/$STUDIO /home/$SDK
 
 # Customize the environment and start ssh services.
 CMD ["/bin/bash", "/src/android-dl-start.sh"]
