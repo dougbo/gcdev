@@ -28,8 +28,8 @@ for svc in $*; do
   echo "SESSION: " $svc
   echo "$svc &" >>$DOCKERENV_HOME/.xsession
 done
-echo $startprogram >>$DOCKERENV_HOME/.xsession
-chown $DOCKERENV_USER:users .xsession
+echo exec $startprogram >>$DOCKERENV_HOME/.xsession
+chown $DOCKERENV_USER:users $DOCKERENV_HOME/.xsession
 
 ### finish initializing the system ###
 
