@@ -13,11 +13,8 @@ set -x
 echo "starting android studio for" $DOCKERENV_USER $DOCKERENV_HOME
 
 # copy android studio, changing permissions (needs to be readable by the user)
-# mv /home/android-studio $DOCKERENV_HOME/android-studio
-# tar -C /home/android-sdk-linux -cf - . | tar -C $DOCKERENV_HOME/android-studio/sdk -xf -
-# chown -R $DOCKERENV_USER:androiddev $DOCKERENV_HOME/android-studio
 
-su -c "tar -C $DOCKERENV_HOME -xvf /home/$STUDIO" $DOCKERENV_USER
+su -c "tar -C $DOCKERENV_HOME -xf /home/$STUDIO" $DOCKERENV_USER
 su -c "tar -C $DOCKERENV_HOME/android-studio/sdk -xf /home/$SDK" $DOCKERENV_USER
 
 

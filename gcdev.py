@@ -33,13 +33,16 @@ def get_parser():
 
     Registers the commands:
         init: For setting the project/language/framework parameters
-        edit: For creating a cloud instance in which to do development
+        run: For creating a cloud instance in which to do development
 
     Returns:
         An argparse.ArgumentParser that can parse the passed in arguments.
     """
     parser = argparse.ArgumentParser(
-            prog='gcdev', description='gcdev Google Cloud developement interface')
+            prog='gcdev', 
+            description='gcdev Google Cloud developement interface')
+    parser.add_argument('--verbose', action='store_true', dest='verbose',
+                             help='Verbose output')
     subparsers = parser.add_subparsers(help='gcdev commands')
 
     # Init
@@ -52,28 +55,31 @@ def get_parser():
                              help='Initialize for App Engine development')
     parser_init.add_argument('--android', action='store_true', dest='is_android',
                              help='Intialize for Android development')
-    parser_init.add_argument('--platform', dest='platform',
-                             help='Platform template')
     parser_init.add_argument('--emul', action='store_true', dest='emul',
                              help='Initialize for Andoid+emulation development')
     parser_init.add_argument('--repo', dest='git_repo',
                              help='Set git repository to pull from/push to')
+    parser_init.add_argument('--build', dest='build', 
+                             default=False, action='store_true',
+                             help='Rebuild image(s)')
+    parser_init.add_argument('--platform', dest='platform',
+                             help='Platform template')
     parser_init.add_argument('--lang', dest='project_lang',
                              help='Set language:framework for default template')
 
-    # Edit
-    parser_edit = subparsers.add_parser('edit', help='Create editor.')
-    parser_edit.set_defaults(cmd='edit')
-    parser_edit.add_argument('--project', dest='project_name',
+    # Run
+    parser_run = subparsers.add_parser('run', help='Create editor.')
+    parser_run.set_defaults(cmd='run')
+    parser_run.add_argument('--project', dest='project_name',
                              default=None,
-                             help='Project to edit')
-    parser_edit.add_argument('--desktop_name', dest='crd_name',
+                             help='Project to run')
+    parser_run.add_argument('--name', dest='crd_name',
                              help='Name of the Chrome Remote Desktop session')
-    parser_edit.add_argument('--restart', dest='restart',
+    parser_run.add_argument('--container', dest='container',
+                             help='Name of the edit container to use')
+    parser_run.add_argument('--restart', dest='restart',
                              default=False, action='store_true',
                              help='Restart the editor environment')
-    parser_edit.add_argument('--container', dest='container',
-                             help='Name of the edit container to replace')
 
     # Publish
     parser_publish = subparsers.add_parser('publish', help='Publish current project in Apps Marketplace')
@@ -102,10 +108,12 @@ def get_parser():
 #  gcp: google cloud platform sdk/apis
 #  gapi: google apis (apps, geo, yt, etc.)
 #  data: *per user* data volume for persistent storage of state
-_GOOGLE_CRD_IMAGE="google/crd-env"
-_GOOGLE_CLOUD_IMAGE="google/cloudtools" 
-_GOOGLE_ANDROID_IMAGE="google/androidtools" 
-_GOOGLE_ANDROIDPLUSEMUL_IMAGE="google/androidtools-emul" 
+_IMAGE_BASE="dougbo"
+
+_GOOGLE_CRD_IMAGE="%s/crd-env" % _IMAGE_BASE
+_GOOGLE_CLOUD_IMAGE="%s/cloudtools" % _IMAGE_BASE
+_GOOGLE_ANDROID_IMAGE="%s/androidtools" % _IMAGE_BASE
+_GOOGLE_ANDROIDPLUSEMUL_IMAGE="%s/androidtools-emul" % _IMAGE_BASE
 
 _DOCKER_CRD=("Dock.crd/", _GOOGLE_CRD_IMAGE)
 _DOCKER_CLOUDTOOLS=("Dock.cloudtools/", _GOOGLE_CLOUD_IMAGE)
@@ -115,7 +123,7 @@ _DOCKER_ANDROIDTOOLSPLUSEMUL=("Dock.androidtools+emul/", _GOOGLE_ANDROIDPLUSEMUL
 _MAX_SSH_RETRY=8
 
 
-def _start(image, mdds):
+def _start(image, mdds, verbose=False):
     """
     Create a new container from the given image
     """
@@ -143,24 +151,28 @@ def _start(image, mdds):
             }
         return env
 
-    # edit: start a new containerized editing environment
+    # run: start a new containerized editing environment
 
     # first, find out how many currently running containers we have
     latest_image = "%s:latest" % image
 
-    containers = [d for d in docker.ps() if d['image'] == latest_image]
-    print "EXISTING CONTAINERS: ", containers
+    if verbose:
+        containers = [d for d in docker.ps() if d['image'] == latest_image]
 
-    if len(containers):
-        print "%12.12s\t%s" % ("CONTAINER ID", "CREATED")
-    for c in containers:
-        print "%12.12s\t%s" % (c['container id'], c['created'])
+        if len(containers):
+            print "%12.12s\t%s" % ("CONTAINER ID", "CREATED")
+        for c in containers:
+            print "%12.12s\t%s" % (c['container id'], c['created'])
 
     container = docker.start(latest_image, env=_get_env())[0:_SHORT_CONTAINER_ID_LEN]
-    print "started: container=", container
+    print "STARTED: container=", container
+    if verbose:
+        devnull=None
+    else:
+        devnull=open("/dev/null", "w")
 
     # get an ssh connection into the new container
-    ssh = docker.get_ssh(container_id=container)
+    ssh = docker.get_ssh(container_id=container, stderr=devnull)
     if not ssh:
         raise gcd_errors.Fail("container failed to start")
 
@@ -169,7 +181,12 @@ def _start(image, mdds):
         try:
             output = ssh("echo","Connected")
             break
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError, e:
+            if verbose:
+                print e
+            else:
+                print ".",
+                sys.stdout.flush()
             if timeout == _MAX_SSH_RETRY:
                 raise gcd_errors.Fail("Couldn't connect to ssh service")
             time.sleep(timeout*10)
@@ -201,6 +218,9 @@ def init(args):
     if argdict['is_gae'] and argdict['is_android']:
         raise gcd_errors.InvalidCondition("Cannot specify both Android and App Engine")
 
+    verbose = argdict['verbose']
+    action = argdict['build'] and 'build' or 'pull'
+
 
     # store the current project state in the metadata store for this user; 
     # restart database
@@ -222,15 +242,20 @@ def init(args):
             images = [_DOCKER_ANDROIDTOOLS]
     elif argdict['platform']:
         platform = argdict['platform']
-        images = [('Dock.%s' % platform, 'google/gcdev-%s' % platform)]
+        images = [('Dock.%s' % platform, '%s/gcdev-%s' % (_IMAGE_BASE, platform))]
     else:
         images = [_DOCKER_CRD]
 
+    # pull or build images
     for dir, tag in images:
-        output = docker.do(["build", "--rm=true", "-t", tag, dir])
-        if not output:
-            raise gcd_errors.Fail("Docker build failed for %s" % tag)
-        print "BUILD: ", tag, output
+        if action == 'build':
+            output = docker.do(["build", "--rm=true", "-t", tag, dir])
+        else:
+            output = docker.do(["pull", tag])
+
+    if not output:
+        raise gcd_errors.Fail("Docker %s failed for %s" % (action, tag))
+    if verbose: print "%s: ", action, tag, output
 
     image = images[-1][1]
     mdds.store('project_image', image)
@@ -249,13 +274,13 @@ def init(args):
         mdds.store('active_template', 'true')
 
 
-def edit(args):
+def run(args):
     """
     Use create the cloud-based container for program development based on 
     parameters in the metadata store, modified by our arguments
 
-    edit --image <image>, starts a new container with that image
-    edit [no args] 
+    run --image <image>, starts a new container with that image
+    run [no args] 
         if mdds['project_image'] starts a new container from that image
     """
 
@@ -266,11 +291,12 @@ def edit(args):
 
     argdict = vars(args)
     image = argdict.get('image') or mdds.get('project_image')
+    verbose = argdict['verbose']
 
-    print "EDIT: image: ", image
-    container = _start(image, mdds)
+    if verbose: print "RUN: image: ", image
+    container = _start(image, mdds, verbose=verbose)
 
-    print "EDIT: using container ", container
+    if verbose: print "RUN: using container ", container
     mdds.store('project_image', image)
     mdds.store('project_container', container)
 
@@ -335,6 +361,7 @@ def ssh(args):
         except:
             gcd_errors.Fail("Couldn't start connection")
 
+        if verbose: print ssh_cmd
         return subprocess.check_call(ssh_cmd)
 
 
@@ -345,6 +372,7 @@ def ssh(args):
 
     if argdict.get('image', None) and argdict.get('container', None):
         raise gcd_errors.InvalidCondition("Cannot specify both --image and --container")
+    verbose=argdict['verbose']
 
     container = argdict.get('container', None)
     if container:
@@ -355,7 +383,7 @@ def ssh(args):
     # may need to start a container
     image = argdict.get('image')
     if image:
-        container = _start(image, mdds)
+        container = _start(image, mdds, verbose=verbose)
 
         print "SSH: image: '%s' container '%s'" % (image, container)
         return _ssh_to_container(container)
@@ -371,7 +399,7 @@ def ssh(args):
     if not image:
         raise gcd_errors.InvalidCondition("No --image or initialized project")
 
-    container = _start(image, mdds)
+    container = _start(image, mdds, verbose=verbose)
     print "SSH: image: '%s' container '%s'" % (image, container)
     return _ssh_to_container(container)
 
@@ -384,4 +412,4 @@ if __name__ == '__main__':
         restart = False
         container = 'aa584cb86b1c'
 
-    edit(v)
+    run(v)

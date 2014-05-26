@@ -1,5 +1,5 @@
 
-FROM google/crd-env
+FROM dougbo/gcdev-crd
 MAINTAINER doug orr "doug.orr@gmail.com"
 
 # define ENV's for version-specific downloads

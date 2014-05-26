@@ -25,7 +25,7 @@ class MetadataDataStore(object):
 
     
     def store(self, key, value):
-        print "Store %s -> %s" % (key, value)
+        # print "Store %s -> %s" % (key, value)
         self._dict[key] = value
 
         # xxx(orr) -- incredibly temporary

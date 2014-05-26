@@ -227,7 +227,7 @@ def get_ssh_cmd(container_id=None):
     # construct an ssh command
     return ["ssh", "-o", "StrictHostKeyChecking=no","-p", port, docker_ip]
 
-def get_ssh(container_id=None):
+def get_ssh(container_id=None, stdin=None, stdout=None, stderr=None):
     """
     get_ssh: return a function that can be used to pipe commands to our docker container
     via and ssh connection
@@ -235,7 +235,10 @@ def get_ssh(container_id=None):
 
     ssh_cmd = get_ssh_cmd(container_id=container_id)
     
-    ssh = lambda *args: subprocess.check_call(ssh_cmd+list(args))
+    ssh = lambda *args: subprocess.check_call(ssh_cmd+list(args),
+                                              stdin=stdin,
+                                              stdout=stdout,
+                                              stderr=stderr)
     return ssh
 
 if __name__ == '__main__':

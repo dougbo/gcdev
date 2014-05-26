@@ -2,9 +2,11 @@ import sys
 
 from gcdev import get_parser
 from gcdev import init
-from gcdev import edit
+from gcdev import run
 from gcdev import publish
 from gcdev import ssh
+
+import gcd_errors
 
 def main(argv):
     """Runs main program.
@@ -22,8 +24,8 @@ def main(argv):
     args = parser.parse_args(remaining)
 
     # xxx(orr): use introspection on gcdev module
-    if args.cmd == 'edit':
-        edit(args)
+    if args.cmd == 'run':
+        run(args)
     elif args.cmd == 'init':
         init(args)
     elif args.cmd == 'publish':
@@ -31,7 +33,7 @@ def main(argv):
     elif args.cmd == 'ssh':
         ssh(args)
     else:
-        fatal("Unexpected command: "+args.cmd)
+        gcd_errors.Fail("Unexpected command: "+args.cmd)
     
     return 0
 

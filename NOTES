@@ -1,3 +1,7 @@
+5/26
+X only build/pull containers you need
+X pull containers unless --build specified [for now always build]
+
 
 5/14
 todo:
@@ -5,8 +9,6 @@ add data volume
 X fix android studio permissions -- try making a group setting
 X factor out "start" in case you run ssh before you've started the vm
 X add -android, -appengine; 
-only build/pull containers you need
-pull containers unless --build specified [for now always build]
 
 dev environment--
 establish git connection; clone/pull initial setup
