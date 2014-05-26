@@ -15,12 +15,16 @@ RUN apt-get update && apt-get install -y -qq --no-install-recommends wget unzip 
 RUN apt-get install -y git
 
 # get sublime
-
 ADD $SUBLIME /opt/sublime.tar.bz
 RUN cd /opt; tar -xvjf ./sublime.tar.bz
 RUN rm -f /usr/bin/sublime
 RUN ln -s /opt/Sublime*/sublime_text /usr/bin/sublime
 RUN rm -f /opt/sublime.tar.bz
+
+# get acme
+ENV ACME https://code.google.com/p/acme-sac/downloads/detail?name=acme-sac_0.14_i386.deb&can=2&q=Ubuntu
+ADD $ACME /opt/acme.deb
+RUN dpkg -i /opt/acme.deb
 
 # emacs and vim just for good measure
 RUN apt-get install -y emacs vim

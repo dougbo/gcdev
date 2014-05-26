@@ -2,6 +2,24 @@
 X only build/pull containers you need
 X pull containers unless --build specified [for now always build]
 
+use docker api so that you can do a fire-and-forget launch from workstation or laptop (only
+problem is that it's not very "cloud-y" -- you have to have the s/w installed 
+on every workstation / laptop. although I guess that's the same as with "gcloud"
+and maybe if it's useful enough we would incorporate into gcloud)
+
+install docker (via ssh for fire-and-forget)
+
+load up on coreos+container
+
+take one last crack at getting properly permitted android studio in container (don't
+have to untar or chmod -R
+
+ssh -- ugh. need docker improvements. latching onto the ssh pipe is not
+safe and fragile.
+
+dev environment--
+establish git connection; clone/pull initial setup -- need keys
+set up framework
 
 5/14
 todo:
@@ -10,9 +28,6 @@ X fix android studio permissions -- try making a group setting
 X factor out "start" in case you run ssh before you've started the vm
 X add -android, -appengine; 
 
-dev environment--
-establish git connection; clone/pull initial setup
-set up framework
 
 common uses:
 gcd init --project foo --android [build/pull's android which b/p's crd, launches studio]
