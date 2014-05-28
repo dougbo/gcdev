@@ -53,6 +53,8 @@ def get_parser():
                              help='Set development project name')
     parser_init.add_argument('--appengine', action='store_true', dest='is_gae',
                              help='Initialize for App Engine development')
+    parser_init.add_argument('--cloud', action='store_true', dest='is_gae',
+                             help='Initialize for GCP development')
     parser_init.add_argument('--android', action='store_true', dest='is_android',
                              help='Intialize for Android development')
     parser_init.add_argument('--emul', action='store_true', dest='emul',
@@ -172,7 +174,7 @@ def _start(image, mdds, verbose=False):
         devnull=open("/dev/null", "w")
 
     # get an ssh connection into the new container
-    ssh = docker.get_ssh(container_id=container, stderr=devnull)
+    ssh = docker.get_ssh(container_id=container, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
     if not ssh:
         raise gcd_errors.Fail("container failed to start")
 
@@ -314,7 +316,7 @@ def run(args):
     # editor of their choice which is specialized to their GIT repository
     crd_name = argdict.get('crd_name') or project_name
     _CRD_CMD="/opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth"
-    ssh(". .profile; %s %s" % (_CRD_CMD, "--name=%s" % crd_name))
+    # ssh(". .profile; %s %s" % (_CRD_CMD, "--name=%s" % crd_name))
 
 
 

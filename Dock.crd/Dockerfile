@@ -1,7 +1,8 @@
 # Chrome Remote Desktop Docker environment
 
-# Install Chrome remote desktop and set up an X-based platform that we can attach
-# environments and set up tools on
+# Install Chrome remote desktop and set up an X-based platform that we can 
+
+# attach environments and set up tools on
 
 FROM debian
 MAINTAINER doug orr "doug.orr@gmail.com"
@@ -16,6 +17,10 @@ RUN apt-get install -y apt-utils
 # get crd
 RUN apt-get -y --allow-unauthenticated install chrome-remote-desktop
 
+# installing crd updates the source lists (arg); remove the now-redundant
+# spec's so we don't get apt errors
+RUN rm /etc/apt/sources.list.d/chromeos.list
+
 
 # Set the env variable DEBIAN_FRONTEND to noninteractive
 ENV DEBIAN_FRONTEND noninteractive
@@ -25,16 +30,12 @@ RUN apt-get install -y xserver-xorg
 RUN apt-get install -y xterm
 RUN apt-get install -y rox-filer ssh fluxbox 
 RUN apt-get install -y rsyslog
+RUN apt-get install -y strace
 
 # Set locale (fix the locale warnings)
 RUN apt-get install -y locales
 
 RUN apt-get -y upgrade
-
-# Copy the files into the container
-ADD src/ /src
-RUN groupadd androiddev
-
 
 # minor cleanup
 RUN sed 's/# en_US/en_US/g' </etc/locale.gen >/tmp/locale.out; mv /tmp/locale.out /etc/locale.gen
@@ -50,8 +51,23 @@ RUN chmod go+r /etc/shadow
 
 RUN chmod 1777 /dev/shm
 
-# allow ssh -- we'll have to dig the port out of the ps entry later
-EXPOSE 22
+# run as a non-root user; in derived containers we'll set up more 
+# per-user customization
+ENV USER crd
+ENV HOME /home/$USER
 
-# Customize the environment and start ssh services.
-CMD ["/bin/bash", "/src/crd-start.sh"]
+RUN addgroup chrome-remote-desktop
+RUN adduser --quiet --disabled-login --disabled-password --home $HOME --ingroup sudo $USER
+RUN echo "$USER ALL=(ALL:ALL) NOPASSWD: ALL" >/etc/sudoers.d/$USER
+RUN chmod 0440 /etc/sudoers.d/$USER
+
+RUN echo "exec xterm" >$HOME/.xsession
+RUN chown $USER $HOME/.xsession
+
+# pick a better default size
+ENV CHROME_REMOTE_DESKTOP_DEFAULT_DESKTOP_SIZES 1024x800
+
+# launch the remote desktop as our new user
+# it's gross, but we need to make sure the CMD doesn't exit 
+USER crd
+CMD /opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth --name=BasicCRD; while true; do read line; done

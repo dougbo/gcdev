@@ -7,6 +7,17 @@ MAINTAINER doug orr "doug.orr@gmail.com"
 ENV STUDIO android-studio-bundle-133.1028713-linux.tgz
 ENV SDK android-sdk_r22.6.2-linux.tgz
 
+USER root
+
+# * get android sdk *
+
+# make sure we know the directory name the tar file goes into
+
+ADD http://dl.google.com/android/studio/install/0.4.6/$STUDIO $HOME/$STUDIO
+ADD http://dl.google.com/android/$SDK $HOME/$SDK
+
+RUN chown crd $HOME/$STUDIO $HOME/$SDK
+
 
 # ** get some basics **
 RUN apt-get update && apt-get install -y -qq --no-install-recommends wget unzip python bzip2
@@ -19,23 +30,11 @@ RUN apt-get install -y git
 # get java
 RUN apt-get install -y openjdk-7-jre openjdk-7-jdk
 
-# Copy the files into the container
-ADD src/ /src
+USER crd
 
-# * get android sdk *
+RUN cd $HOME; tar -xf $STUDIO
+RUN cd $HOME; tar -C $HOME/android-studio/sdk --strip 1 -xf $SDK
 
-# there's some funky group thing -- make sure that there's group permission
-# for the studio so that we can install it in a well known place rather than
-# installing to someone's home directory. plus chgrp -R takes forever in this 
-# context
+RUN echo "exec $HOME/android-studio/bin/studio.sh" >$HOME/.xsession
 
-# make sure we know the directory name the tar file goes into
-ADD http://dl.google.com/android/studio/install/0.4.6/$STUDIO /home/
-ADD http://dl.google.com/android/$SDK /home/
-RUN chmod a+rx /home/$STUDIO /home/$SDK
-
-# RUN cd /home; tar -xvf $STUDIO
-# RUN cd /home; tar -xvf $SDK
-
-# Customize the environment and start ssh services.
-CMD ["/bin/bash", "/src/android-start.sh"]
+CMD /opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth --name=AndroidStudio; while true; do read line; done

@@ -22,7 +22,11 @@ echo "export CHROME_REMOTE_DESKTOP_DEFAULT_DESKTOP_SIZES=1024x800" >> $DOCKERENV
 echo set up session in $DOCKERENV_HOME
 echo "#!/usr/bin/env bash" >$DOCKERENV_HOME/.xsession
 
-startprogram=$1; shift
+if [ $# != 0 ]; then
+  startprogram=$1; shift
+else
+  startprogram=xterm
+fi
 echo >>$DOCKERENV_HOME/.xsession
 for svc in $*; do
   echo "SESSION: " $svc
@@ -46,5 +50,8 @@ chmod 1777 /dev/shm
 echo start sshd
 # Start the ssh service
 mkdir /var/run/sshd 
+/usr/sbin/sshd &
 
-/usr/sbin/sshd -D
+su $DOCKERENV_USER -c "/opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth --name=$DOCKERENV_USER"
+
+
