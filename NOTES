@@ -1,3 +1,12 @@
+6/2
+
+1 - make script to update disk as part of "init"
+-- create disk with larger size; create vm; ssh in and update disk size
+2 -- ssh in and install docker (?) or should we use docker-ready vm?
+
+5/27
+install docker via fire and forget
+
 5/26
 X only build/pull containers you need
 X pull containers unless --build specified [for now always build]

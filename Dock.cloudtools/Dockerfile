@@ -8,8 +8,14 @@ ENV SUBLIME http://c758482.r82.cf2.rackcdn.com/Sublime%20Text%202.0.2%20x64.tar.
 
 USER root
 
+ADD ./src /src
+
+RUN apt-get install -y ssh
+RUN mkdir /var/run/sshd
+
 # ** get some basics **
 RUN apt-get update && apt-get install -y -qq --no-install-recommends wget unzip python bzip2
+RUN apt-get install -y -qq --no-install-recommends python-pip
 
 # ** install general utility developer tools **
 
@@ -26,6 +32,10 @@ RUN rm -f /opt/sublime.tar.bz
 # emacs and vim just for good measure
 RUN apt-get install -y emacs vim
 
+RUN pip install --upgrade google-api-python-client
+RUN pip install --upgrade requests
+RUN pip install --upgrade requests-oauth2
+
 
 # install the google cloud platform tools
 
@@ -35,6 +45,7 @@ RUN cd $HOME; wget https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.zi
 RUN cd $HOME; google-cloud-sdk/install.sh --usage-reporting=true --path-update=true --bash-completion=true --rc-path=$HOME/.bashrc --disable-installation-options
 RUN cd $HOME; yes | google-cloud-sdk/bin/gcloud components update pkg-go pkg-python pkg-java
 
+
 # Customize the environment; define X clients and start ssh services.
 
 RUN echo "" >$HOME/.xsession
@@ -43,4 +54,7 @@ RUN echo "sublime &" >>$HOME/.xsession
 RUN echo "xterm &" >>$HOME/.xsession
 RUN echo "exec startfluxbox" >>$HOME/.xsession
 
-CMD /opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth --name=CloudTools; while true; do read line; done
+RUN mkdir $HOME/.ssh; chmod 700 $HOME/.ssh
+
+
+CMD /src/cloudtools.sh; /opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth --name=CloudTools; /usr/sbin/sshd -D

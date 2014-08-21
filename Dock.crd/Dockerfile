@@ -7,33 +7,45 @@
 FROM debian
 MAINTAINER doug orr "doug.orr@gmail.com"
 
-# add repo for chrome remote desktop
-RUN echo deb http://dl.google.com/linux/chrome-remote-desktop/deb/ stable main >/etc/apt/sources.list.d/chromeos.list
+# RUN echo deb http://dl.google.com/linux/chrome-remote-desktop/deb/ stable main >/etc/apt/sources.list.d/chromeos.list
 
-RUN apt-get update
+RUN apt-get update && apt-get -y upgrade
 RUN apt-key update
 RUN apt-get install -y apt-utils
 
 # get crd
-RUN apt-get -y --allow-unauthenticated install chrome-remote-desktop
+# RUN apt-get --allow-unauthenticated install -y chrome-remote-desktop
 
 # installing crd updates the source lists (arg); remove the now-redundant
 # spec's so we don't get apt errors
-RUN rm /etc/apt/sources.list.d/chromeos.list
-
+# RUN rm /etc/apt/sources.list.d/chromeos.list
 
 # Set the env variable DEBIAN_FRONTEND to noninteractive
 ENV DEBIAN_FRONTEND noninteractive
 
 # Installing the environment required: xserver and ssh
-RUN apt-get install -y xserver-xorg 
+RUN apt-get install -y xserver-xorg xvfb 
+RUN apt-get install -y xbase-clients
+RUN apt-get install -y gksu python-psutil libnspr4 libnss3
 RUN apt-get install -y xterm
+RUN apt-get install -y surf 
 RUN apt-get install -y rox-filer ssh fluxbox 
 RUN apt-get install -y rsyslog
 RUN apt-get install -y strace
 
+ENV CHROME_REMOTE_DESKTOP chrome-remote-desktop_current_amd64.deb
+ADD https://dl.google.com/linux/direct/$CHROME_REMOTE_DESKTOP /tmp/$CHROME_REMOTE_DESKTOP
+RUN dpkg -i /tmp/$CHROME_REMOTE_DESKTOP
+
+RUN apt-get install -y wmaker
+
+RUN apt-get install -y git
+
 # Set locale (fix the locale warnings)
 RUN apt-get install -y locales
+
+RUN apt-get update && apt-get -y upgrade
+
 
 RUN apt-get -y upgrade
 
@@ -61,13 +73,13 @@ RUN adduser --quiet --disabled-login --disabled-password --home $HOME --ingroup 
 RUN echo "$USER ALL=(ALL:ALL) NOPASSWD: ALL" >/etc/sudoers.d/$USER
 RUN chmod 0440 /etc/sudoers.d/$USER
 
-RUN echo "exec xterm" >$HOME/.xsession
+RUN echo "wmaker &" >$HOME/.xsession
+RUN echo "exec xterm" >>$HOME/.xsession
 RUN chown $USER $HOME/.xsession
 
 # pick a better default size
 ENV CHROME_REMOTE_DESKTOP_DEFAULT_DESKTOP_SIZES 1024x800
 
 # launch the remote desktop as our new user
-# it's gross, but we need to make sure the CMD doesn't exit 
 USER crd
-CMD /opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth --name=BasicCRD; while true; do read line; done
+CMD /opt/google/chrome-remote-desktop/start-host --redirect-url=https://chromoting-auth.googleplex.com/auth --name=BasicCRD ; while true; do read line; done
